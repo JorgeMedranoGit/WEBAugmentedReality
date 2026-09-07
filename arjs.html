@@ -4,72 +4,89 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>WebAR - 8th Wall Open Source (Sin NPM)</title>
+  <title>WebAR - Image Targets Open Source</title>
 
-  <!-- 1. Motor Open Source de 8th Wall (Se descarga primero) -->
-  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous"></script>
+  <!-- 1. 8frame: Versión de A-Frame optimizada por 8th Wall (Recomendado sobre aframe.min.js estándar) -->
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/gh/8thwall/aframe-world-effects-example@main/external/scripts/8frame-1.5.0.min.js"></script>
   
-  <!-- 2. A-Frame -->
-  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <!-- 2. Motor de 8th Wall (Open Source) con precarga de SLAM para Image Targets -->
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- 3. Extensiones UI de 8th Wall -->
-  <script src="https://cdn.jsdelivr.net/npm/@8thwall/xrextras@1/dist/xrextras.js"></script>
+  <!-- 3. Extensiones de UI y Gestos de 8th Wall -->
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/xrextras@1/dist/xrextras.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/landing-page@1/dist/landing-page.js" crossorigin="anonymous"></script>
 
-  <style>
-    body { margin: 0; padding: 0; background-color: #000; }
-    #scene-container { width: 100%; height: 100%; }
-  </style>
-</head>
-<body>
+  <!-- 4. aframe-extras: Necesario para que funcione el componente 'animation-mixer' -->
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
 
-  <!-- Contenedor vacío donde inyectaremos la escena una vez que XR8 esté listo -->
-  <div id="scene-container"></div>
-
+  <!-- 5. Configuración de los Image Targets (¡CRUCIAL!) -->
   <script>
-    // Esta función crea la escena estática solo cuando el motor está garantizado
-    const startAR = () => {
-      console.log("XR8 Inicializado. Versión:", XR8.version());
-      
-      const sceneHTML = `
-        <a-scene 
-          xrextras-gesture-detector 
-          landing-page 
-          xrextras-loading 
-          xrextras-runtime-error
-          renderer="colorManagement:true" 
-          xrweb="disableWorldTracking: true">
+    const onxrloaded = async () => {
+      try {
+        // Carga los archivos .json de tus image targets.
+        // Estos archivos se generan con la CLI de 8th Wall: npx @8thwall/image-target-cli@latest
+        // Asegúrate de que las rutas './target1.json' y './target2.json' sean correctas.
+        const [target1, target2] = await Promise.all([
+          fetch('./image-targets/target1.json').then(res => res.json()),
+          fetch('./image-targets/target2.json').then(res => res.json())
+        ]);
 
-          <a-assets>
-            <a-asset-item id="model-cesium" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb"></a-asset-item>
-            <a-asset-item id="model-fox" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb"></a-asset-item>
-          </a-assets>
-
-          <a-camera position="0 0 0" raycaster="objects: .cantap" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
-          <a-light type="directional" intensity="0.8" position="1 2 1"></a-light>
-          <a-light type="ambient" intensity="1"></a-light>
-
-          <!-- Targets (asegúrate de que los nombres coincidan con los de tu JSON) -->
-          <xrextras-named-image-target name="target1">
-            <a-entity gltf-model="#model-cesium" scale="0.3 0.3 0.3" rotation="90 0 0" animation-mixer></a-entity>
-          </xrextras-named-image-target>
-
-          <xrextras-named-image-target name="target2">
-            <a-entity xrextras-one-finger-rotate gltf-model="#model-fox" scale="0.005 0.005 0.005" rotation="90 0 0" animation-mixer></a-entity>
-          </xrextras-named-image-target>
-
-        </a-scene>
-      `;
-      document.getElementById('scene-container').innerHTML = sceneHTML;
+        // Configuramos el motor con los datos de los targets
+        XR8.XrController.configure({
+          imageTargetData: [target1, target2]
+        });
+      } catch (error) {
+        console.error("Error cargando los Image Targets. Verifica que los archivos .json existan:", error);
+      }
     };
 
-    // Escuchamos el evento nativo del motor que confirma que XR8 existe en la ventana
-    if (window.XR8) {
-      startAR();
-    } else {
-      window.addEventListener('xrloaded', startAR);
-    }
+    // Ejecutar cuando el motor esté listo
+    window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded);
   </script>
+</head>
 
+<body>
+  <a-scene 
+    xrextras-gesture-detector 
+    landing-page 
+    xrextras-loading 
+    xrextras-runtime-error
+    renderer="colorManagement:true" 
+    xrweb="disableWorldTracking: true">
+
+    <a-assets>
+      <!-- Modelos 3D de prueba -->
+      <a-asset-item id="model-cesium" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb"></a-asset-item>
+      <a-asset-item id="model-fox" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- Cámara con posición inicial alejada para evitar que inicie "dentro" del modelo -->
+    <a-camera position="0 0 5" raycaster="objects: .cantap" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
+
+    <a-light type="directional" intensity="0.8" position="1 2 1"></a-light>
+    <a-light type="ambient" intensity="1"></a-light>
+
+    <!-- Target 1: El atributo 'name' debe coincidir EXACTAMENTE con el nombre dentro de target1.json -->
+    <xrextras-named-image-target name="target1">
+      <a-entity 
+        gltf-model="#model-cesium" 
+        scale="0.5 0.5 0.5" 
+        rotation="-90 0 0" 
+        animation-mixer="clip: *; loop: repeat; timeScale: 1">
+      </a-entity>
+    </xrextras-named-image-target>
+
+    <!-- Target 2: El atributo 'name' debe coincidir EXACTAMENTE con el nombre dentro de target2.json -->
+    <xrextras-named-image-target name="target2">
+      <a-entity 
+        xrextras-one-finger-rotate 
+        gltf-model="#model-fox" 
+        scale="0.01 0.01 0.01" 
+        rotation="-90 0 0" 
+        animation-mixer="clip: *; loop: repeat; timeScale: 1">
+      </a-entity>
+    </xrextras-named-image-target>
+
+  </a-scene>
 </body>
 </html>
