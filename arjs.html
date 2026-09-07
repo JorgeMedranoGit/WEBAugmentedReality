@@ -1,232 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WebAR - Image Targets</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <style>
-        html, body {
-            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: Arial, sans-serif;
-        }
-        #camerafeed {
-            position: fixed; inset: 0; width: 100%; height: 100%; display: block;
-        }
-        #back-button {
-            position: fixed; top: 15px; left: 15px; z-index: 9999; padding: 10px 20px; background: rgba(0, 0, 0, 0.7); color: white; border-radius: 20px; text-decoration: none; font-size: 14px;
-        }
-        #status {
-            position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 10px 18px; background: rgba(0, 0, 0, 0.7); color: white; border-radius: 20px; font-size: 14px; white-space: nowrap;
-        }
-        #loading {
-            position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; flex-direction: column; background: #000; color: white;
-        }
-        #loading.hidden { display: none; }
-        .spinner {
-            width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
+  <title>WebAR - Multi-Target 8th Wall</title>
 
-    <!-- Three.js y GLTFLoader --><!-- Three.js y GLTFLoader estables (Status 200 garantizado) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-
-    <!-- 8th Wall Engine -->
-    <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async crossorigin="anonymous"></script>
+  <!-- 1. A-Frame adaptado -->
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  
+  <!-- 2. Utilidades oficiales de 8th Wall (Carga, Errores y Gestos) -->
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/xrextras@1/dist/xrextras.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/landing-page@1/dist/landing-page.js" crossorigin="anonymous"></script>
+  
+  <!-- 3. Motor Core de 8th Wall (REEMPLAZA "TU_APP_KEY" SI ES REQUERIDO O MANTÉN EL BINARIO ABIERTO) -->
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async crossorigin="anonymous" data-preload-chunks="slam"></script>
 </head>
 
 <body>
 
-<canvas id="camerafeed"></canvas>
+  <!-- Escena principal utilizando los componentes nativos de 8th Wall + A-Frame -->
+  <a-scene 
+    xrextras-gesture-detector 
+    landing-page 
+    xrextras-loading 
+    xrextras-runtime-error
+    renderer="colorManagement:true" 
+    xrweb="disableWorldTracking: true">
 
-<a id="back-button" href="index.html">Volver</a>
+    <a-assets>
+      <!-- Modelos 3D remotos estables de prueba (puedes cambiarlos por tus rutas locales si lo deseas) -->
+      <a-asset-item id="model-cesium" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb"></a-asset-item>
+      <a-asset-item id="model-fox" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb"></a-asset-item>
+    </a-assets>
 
-<div id="status">Apunta la cámara hacia una imagen</div>
+    <a-camera position="0 0 0" raycaster="objects: .cantap" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
 
-<div id="loading">
-    <div class="spinner"></div>
-    <div id="loading-text">Iniciando motor de Realidad Aumentada...</div>
-</div>
+    <a-light type="directional" intensity="0.8" position="1 2 1"></a-light>
+    <a-light type="ambient" intensity="1"></a-light>
 
-<script>
-    // URLs públicas y estables de los modelos 3D
-    const MODEL_CESIUM = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb";
-    const MODEL_FOX = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb";
+    <!-- Target 1: Vinculado al nombre "target1" configurado en tus JSONs -->
+    <xrextras-named-image-target name="target1">
+      <a-entity gltf-model="#model-cesium" scale="0.3 0.3 0.3" rotation="90 0 0" animation-mixer></a-entity>
+    </xrextras-named-image-target>
 
-    let targetGroup1 = null;
-    let targetGroup2 = null;
-    let cesiumMixer = null;
-    let foxMixer = null;
-    const clock = new THREE.Clock();
+    <!-- Target 2: Vinculado al nombre "target2" configurado en tus JSONs -->
+    <xrextras-named-image-target name="target2">
+      <!-- Incluye rotación con un dedo nativa de xrextras -->
+      <a-entity xrextras-one-finger-rotate gltf-model="#model-fox" scale="0.005 0.005 0.005" rotation="90 0 0" animation-mixer></a-entity>
+    </xrextras-named-image-target>
 
-    function setStatus(text) {
-        document.getElementById("status").textContent = text;
-    }
-
-    async function loadModels(scene) {
-        document.getElementById("loading-text").textContent = "Cargando modelos 3D...";
-        const loader = new THREE.GLTFLoader();
-
-        // Target 1: CesiumMan
-        try {
-            const gltf = await loader.loadAsync(MODEL_CESIUM);
-            const model = gltf.scene;
-            model.scale.set(0.3, 0.3, 0.3);
-            model.rotation.x = Math.PI / 2;
-
-            if (gltf.animations?.length) {
-                cesiumMixer = new THREE.AnimationMixer(model);
-                gltf.animations.forEach(animation => cesiumMixer.clipAction(animation).play());
-            }
-
-            targetGroup1 = new THREE.Group();
-            targetGroup1.add(model);
-            targetGroup1.visible = false;
-            scene.add(targetGroup1);
-        } catch (error) {
-            console.error("Error cargando CesiumMan:", error);
-        }
-
-        // Target 2: Fox
-        try {
-            const gltf = await loader.loadAsync(MODEL_FOX);
-            const model = gltf.scene;
-            model.scale.set(0.005, 0.005, 0.005);
-            model.rotation.x = Math.PI / 2;
-
-            if (gltf.animations?.length) {
-                foxMixer = new THREE.AnimationMixer(model);
-                gltf.animations.forEach(animation => foxMixer.clipAction(animation).play());
-            }
-
-            targetGroup2 = new THREE.Group();
-            targetGroup2.add(model);
-            targetGroup2.visible = false;
-            scene.add(targetGroup2);
-        } catch (error) {
-            console.error("Error cargando Fox:", error);
-        }
-
-        document.getElementById("loading").classList.add("hidden");
-    }
-
-    window.updateTarget = function(detail) {
-        const group = detail.name === "target1" ? targetGroup1 : (detail.name === "target2" ? targetGroup2 : null);
-        if (!group) return;
-
-        if (detail.position) {
-            group.position.set(detail.position.x, detail.position.y, detail.position.z);
-        }
-        if (detail.rotation) {
-            group.quaternion.set(detail.rotation.x, detail.rotation.y, detail.rotation.z, detail.rotation.w);
-        }
-        if (typeof detail.scale === "number") {
-            group.scale.setScalar(detail.scale);
-        }
-    }
-
-    function createAppPipelineModule() {
-        return {
-            name: "app-ar-logic",
-            onStart: async () => {
-                const scene = XR8.Threejs.xrScene().scene;
-                await loadModels(scene);
-                document.getElementById("loading-text").textContent = "Buscando imágenes...";
-            },
-            listeners: [
-                {
-                    event: "reality.imagefound",
-                    process: ({detail}) => {
-                        if (detail.name === "target1" && targetGroup1) {
-                            targetGroup1.visible = true;
-                            setStatus("Target 1 detectado");
-                        }
-                        if (detail.name === "target2" && targetGroup2) {
-                            targetGroup2.visible = true;
-                            setStatus("Target 2 detectado");
-                        }
-                        window.updateTarget(detail);
-                    }
-                },
-                {
-                    event: "reality.imageupdated",
-                    process: ({detail}) => {
-                        window.updateTarget(detail);
-                    }
-                },
-                {
-                    event: "reality.imagelost",
-                    process: ({detail}) => {
-                        if (detail.name === "target1" && targetGroup1) targetGroup1.visible = false;
-                        if (detail.name === "target2" && targetGroup2) targetGroup2.visible = false;
-                        setStatus("Apunta la cámara hacia una imagen");
-                    }
-                },
-                {
-                    event: "reality.imagescanning",
-                    process: () => {
-                        setStatus("Apunta la cámara hacia una imagen");
-                    }
-                }
-            ],
-            onUpdate: () => {
-                const delta = clock.getDelta();
-                if (cesiumMixer) cesiumMixer.update(delta);
-                if (foxMixer) foxMixer.update(delta);
-            }
-        };
-    }
-
-    async function runAR() {
-        try {
-            document.getElementById("loading-text").textContent = "Cargando Image Targets...";
-
-            const [target1Res, target2Res] = await Promise.all([
-                fetch("./image-targets/target1.json"),
-                fetch("./image-targets/target2.json")
-            ]);
-
-            if (!target1Res.ok || !target2Res.ok) {
-                throw new Error("No se pudieron cargar los archivos JSON de los image targets.");
-            }
-
-            const target1 = await target1Res.json();
-            const target2 = await target2Res.json();
-
-            XR8.XrController.configure({
-                disableWorldTracking: true,
-                imageTargetData: [target1, target2]
-            });
-
-            XR8.addCameraPipelineModules([
-                XR8.GlTextureRenderer.pipelineModule(),
-                XR8.Threejs.pipelineModule(),
-                XR8.XrController.pipelineModule(),
-                createAppPipelineModule()
-            ]);
-
-            XR8.run({
-                canvas: document.getElementById("camerafeed"),
-                allowedDevices: XR8.XrConfig.device().ANY
-            });
-
-        } catch (error) {
-            console.error("Fallo crítico al iniciar AR:", error);
-            document.getElementById("loading-text").textContent = "Error al iniciar: " + error.message;
-        }
-    }
-
-    function startWhenReady() {
-        if (typeof XR8 !== "undefined" && XR8.XrController) {
-            runAR();
-        } else {
-            setTimeout(startWhenReady, 100);
-        }
-    }
-
-    window.addEventListener("xrloaded", startWhenReady);
-</script>
+  </a-scene>
 
 </body>
+
 </html>
