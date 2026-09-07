@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PoC WebAR - Motores</title>
+<style>
+    body { font-family: system-ui, sans-serif; background-color: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    h1 { font-size: 1.5rem; margin-bottom: 2rem; text-align: center; }
+    .subtitle { font-size: 1rem; color: #a1a1aa; font-weight: normal; }
+    .menu { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 360px; }
+    .btn { background: #2563eb; color: white; text-decoration: none; padding: 1.1rem; border-radius: 8px; text-align: center; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: background 0.2s, transform 0.1s; }
+    .btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn.webxr { background: #059669; }
+    .btn.webxr:hover { background: #047857; }
+    .note { margin-top: 1.5rem; font-size: 0.82rem; color: #71717a; text-align: center; line-height: 1.4; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+</head>
+<body>
+<h1>Comparativa Motores AR<br><span class="subtitle">Selecciona un entorno</span></h1>
+<div class="menu">
+    <a href="mindar.html" class="btn">1. MindAR (targets.mind)</a>
+    <a href="simple-ar.html" class="btn">2. Simple-AR (Imágenes directas)</a>
+    <a href="arjs.html" class="btn">3. AR.js (NFT Descriptores)</a>
+    <a href="webxr.html" class="btn webxr">4. WebXR (A-Frame Nativo)</a>
+</div>
+<div class="note">
+    Targets: <strong>human.png</strong> (CesiumMan) y <strong>fox.png</strong> (Fox)
+</div>
+</body>
+</html>

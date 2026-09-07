@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <!-- Bloqueo estricto de caché a nivel navegador -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <title>AR Nativo - MultiTarget sin Compilador</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; }
+    .ui-bar { position: absolute; z-index: 9999; top: 15px; left: 15px; }
+    .ui-btn { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; font-family: sans-serif; text-decoration: none; font-size: 14px; }
+  </style>
+
+  <script>
+    // Generamos un número único cada vez que se abre la página para destruir la caché
+    const cacheBuster = "?v=" + new Date().getTime();
+
+    // Nuestro motor WebXR personalizado para inyectar múltiples imágenes
+    AFRAME.registerSystem('ar-multi-tracker', {
+      init: function () {
+        this.targets = [];
+        const sceneEl = this.el;
+
+        // Interceptamos la cámara antes de que arranque
+        if (sceneEl.systems.webxr) {
+          this.setupXR(sceneEl);
+        } else {
+          sceneEl.addEventListener('loaded', () => this.setupXR(sceneEl));
+        }
+      },
+      
+      setupXR: function(sceneEl) {
+        const originalRequest = sceneEl.systems.webxr.requestSession.bind(sceneEl.systems.webxr);
+        
+        sceneEl.systems.webxr.requestSession = () => {
+          // Extraemos todas las imágenes de los assets y las enviamos al hardware del teléfono
+          const imgFox = document.getElementById('img-fox');
+          const imgHuman = document.getElementById('img-human');
+
+          sceneEl.systems.webxr.sessionConfiguration.optionalFeatures = ['image-tracking'];
+          sceneEl.systems.webxr.sessionConfiguration.trackedImages = [
+            { image: imgFox, widthInMeters: 0.15 },  // 15 centímetros de ancho real
+            { image: imgHuman, widthInMeters: 0.15 }
+          ];
+          
+          return originalRequest();
+        };
+      },
+
+      tick: function () {
+        const xr = this.el.sceneEl.renderer.xr;
+        if (!xr.isPresenting) return;
+        
+        const frame = this.el.sceneEl.frame;
+        if (!frame || !frame.getImageTrackingResults) return;
+        
+        const results = frame.getImageTrackingResults();
+        
+        // Entidades 3D
+        const modelFox = document.getElementById('target-fox');
+        const modelHuman = document.getElementById('target-human');
+        
+        modelFox.setAttribute('visible', false);
+        modelHuman.setAttribute('visible', false);
+
+        // Posicionar modelos según el índice de la imagen detectada
+        for (const result of results) {
+          if (result.trackingState === 'tracked') {
+            const targetEntity = result.index === 0 ? modelFox : modelHuman;
+            targetEntity.setAttribute('visible', true);
+            
+            const pose = frame.getPose(result.imageSpace, xr.getReferenceSpace());
+            if (pose) {
+              targetEntity.object3D.position.copy(pose.transform.position);
+              targetEntity.object3D.quaternion.copy(pose.transform.orientation);
+            }
+          }
+        }
+      }
+    });
+  </script>
+</head>
+<body>
+
+  <div class="ui-bar">
+    <a href="index.html" class="ui-btn">← Volver</a>
+  </div>
+
+  <a-scene ar-multi-tracker webxr="optionalFeatures: image-tracking;" vr-mode-ui="enabled: true">
+    <a-assets>
+      <!-- Aplicamos el Cache-Busting a las imágenes mediante JavaScript -->
+      <img id="img-fox" crossorigin="anonymous">
+      <img id="img-human" crossorigin="anonymous">
+      
+      <a-asset-item id="model-fox" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb"></a-asset-item>
+      <a-asset-item id="model-human" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- Inyectamos las rutas con el antídoto para la caché -->
+    <script>
+      document.getElementById('img-fox').src = "fox.png" + cacheBuster;
+      document.getElementById('img-human').src = "human.png" + cacheBuster;
+    </script>
+
+    <a-camera position="0 0 0"></a-camera>
+
+    <!-- Contenedores 3D que el motor moverá -->
+    <a-entity id="target-fox" visible="false">
+      <a-gltf-model src="#model-fox" scale="0.05 0.05 0.05" rotation="90 0 0" animation-mixer></a-gltf-model>
+    </a-entity>
+
+    <a-entity id="target-human" visible="false">
+      <a-gltf-model src="#model-human" scale="0.5 0.5 0.5" rotation="90 0 0" animation-mixer></a-gltf-model>
+    </a-entity>
+
+  </a-scene>
+
+</body>
+</html>

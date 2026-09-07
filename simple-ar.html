@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple-AR - Image Tracking</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000;
+      font-family: system-ui, sans-serif;
+    }
+    #layer3d {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    #video {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+      z-index: 0 !important;
+    }
+    #renderCanvas {
+      display: none !important;
+    }
+    a-scene {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 1 !important;
+    }
+    .a-canvas {
+      background-color: transparent !important;
+    }
+    .ui-bar {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      gap: 10px;
+      z-index: 99999;
+    }
+    .ui-btn {
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 20px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: background 0.2s;
+    }
+    .ui-btn:hover { background: rgba(37, 99, 235, 0.85); }
+    .info-badge {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      z-index: 99999;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      max-width: 90%;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- UI Bar -->
+  <div class="ui-bar">
+    <a href="index.html" class="ui-btn">← Volver</a>
+    <a id="btn-toggle" href="#" class="ui-btn">Cambiar Target</a>
+  </div>
+
+  <div class="info-badge" id="info-badge">
+    Iniciando Simple-AR y cámara...
+  </div>
+
+  <script
+    src="https://cdn.jsdelivr.net/gh/akbartus/Simple-AR@HEAD/dist/0.1.2/simple-ar.min.js"
+    onload="onWasmLoaded();">
+  </script>
+
+  <!-- Escena A-Frame con fondo transparente -->
+  <a-scene embedded renderer="alpha: true" vr-mode-ui="enabled: false">
+    <a-assets>
+      <a-asset-item id="cesium" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb"></a-asset-item>
+      <a-asset-item id="fox" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb"></a-asset-item>
+    </a-assets>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const isFox = urlParams.get('target') === 'fox';
+      const toggleBtn = document.getElementById('btn-toggle');
+      const infoBadge = document.getElementById('info-badge');
+
+      if (isFox) {
+        toggleBtn.textContent = 'Cambiar a Humano (human.png)';
+        toggleBtn.href = '?target=human';
+        infoBadge.innerHTML = 'Target activo: <strong>fox.png</strong> (Modelo: Fox)<br><small>Simple-AR rastrea 1 imagen a la vez</small>';
+        document.write(`
+          <a-entity simple-ar="src: ./fox.png; minCutOffValue: 1; betaValue: 0.1;">
+            <a-gltf-model src="#fox" position="0 0 0.1" scale="0.005 0.005 0.005" rotation="90 0 0" animation-mixer></a-gltf-model>
+          </a-entity>
+        `);
+      } else {
+        toggleBtn.textContent = 'Cambiar a Zorro (fox.png)';
+        toggleBtn.href = '?target=fox';
+        infoBadge.innerHTML = 'Target activo: <strong>human.png</strong> (Modelo: CesiumMan)<br><small>Simple-AR rastrea 1 imagen a la vez</small>';
+        document.write(`
+          <a-entity simple-ar="src: ./human.png; minCutOffValue: 1; betaValue: 0.1;">
+            <a-gltf-model src="#cesium" position="0 0 0.1" scale="0.3 0.3 0.3" rotation="90 0 0" animation-mixer></a-gltf-model>
+          </a-entity>
+        `);
+      }
+    </script>
+
+    <a-camera position="0 0 0"></a-camera>
+  </a-scene>
+
+  <script>
+    // Eventos nativos que emite Simple-AR
+    document.addEventListener("onVideoStarted", function () {
+      const badge = document.getElementById('info-badge');
+      if (badge) {
+        badge.innerHTML = `Cámara conectada. Apunta a <strong>${isFox ? 'fox.png' : 'human.png'}</strong>`;
+      }
+    });
+
+    document.addEventListener("targetFound", function () {
+      const badge = document.getElementById('info-badge');
+      if (badge) {
+        badge.style.background = 'rgba(5, 150, 105, 0.9)';
+        badge.innerHTML = `¡Target detectado! Mostrando ${isFox ? 'Fox' : 'CesiumMan'}`;
+      }
+    });
+
+    document.addEventListener("targetLost", function () {
+      const badge = document.getElementById('info-badge');
+      if (badge) {
+        badge.style.background = 'rgba(0, 0, 0, 0.8)';
+        badge.innerHTML = `Buscando imagen: <strong>${isFox ? 'fox.png' : 'human.png'}</strong>...`;
+      }
+    });
+  </script>
+
+</body>
+</html>
